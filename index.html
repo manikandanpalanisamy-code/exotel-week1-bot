@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 1 Assessment Bot</title>
+<style>
+  :root { color-scheme: light; --brand: #1a56db; --brand-dark: #1240a8; --bg: #f0f4ff; --chat-bg: #ffffff; --user-bubble: #1a56db; --bot-bubble: #f1f5f9; --border: #e2e8f0; --text: #1e293b; --muted: #64748b; --success: #059669; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+
+  .top-bar { background: var(--brand); color: white; padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .bot-avatar { width: 36px; height: 36px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .top-bar-info h1 { font-size: 15px; font-weight: 700; }
+  .top-bar-info p { font-size: 12px; opacity: 0.8; }
+  .progress-pill { margin-left: auto; background: rgba(255,255,255,0.2); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+  .chat-window { flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  .msg { display: flex; gap: 8px; max-width: 85%; }
+  .msg.bot { align-self: flex-start; }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+  .msg-avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--brand); color: white; margin-top: 2px; }
+  .msg.user .msg-avatar { background: #94a3b8; }
+
+  .bubble { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.6; }
+  .msg.bot .bubble { background: var(--bot-bubble); border-bottom-left-radius: 4px; color: var(--text); }
+  .msg.user .bubble { background: var(--user-bubble); border-bottom-right-radius: 4px; color: white; }
+  .bubble strong { font-weight: 700; }
+  .bubble .q-label { font-size: 11px; font-weight: 700; color: var(--brand); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
+  .msg.user .bubble .q-label { color: rgba(255,255,255,0.7); }
+
+  .typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; }
+  .typing span { width: 7px; height: 7px; background: var(--muted); border-radius: 50%; animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+  .input-area { background: white; border-top: 1px solid var(--border); padding: 12px 16px; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0; }
+  textarea#userInput { flex: 1; border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 14px; font-size: 14px; font-family: inherit; resize: none; min-height: 44px; max-height: 120px; color: var(--text); transition: border-color 0.2s; overflow-y: auto; }
+  textarea#userInput:focus { outline: none; border-color: var(--brand); }
+  textarea#userInput:disabled { background: #f8fafc; color: var(--muted); }
+  .send-btn { width: 44px; height: 44px; background: var(--brand); border: none; border-radius: 50%; color: white; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s, transform 0.1s; }
+  .send-btn:hover { background: var(--brand-dark); }
+  .send-btn:active { transform: scale(0.92); }
+  .send-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+  .done-card { background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 12px; padding: 14px 16px; margin-top: 4px; }
+  .done-card .title { font-weight: 700; color: var(--success); font-size: 14px; margin-bottom: 4px; }
+  .done-card .sub { font-size: 13px; color: #065f46; line-height: 1.5; }
+  .warn-card { background: #fff7ed; border: 1px solid #fdba74; border-radius: 12px; padding: 14px 16px; margin-top: 4px; }
+  .warn-card .title { font-weight: 700; color: #c2410c; font-size: 14px; margin-bottom: 4px; }
+  .warn-card .sub { font-size: 13px; color: #7c2d12; line-height: 1.5; }
+  .dl-btn { margin-top: 10px; background: #c2410c; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="bot-avatar">🤖</div>
+  <div class="top-bar-info">
+    <h1>Week 1 Assessment Bot</h1>
+    <p>AI-Tech Support · Exotel</p>
+  </div>
+  <div class="progress-pill" id="progressPill">Not started</div>
+</div>
+
+<div class="chat-window" id="chatWindow"></div>
+
+<div class="input-area">
+  <textarea id="userInput" placeholder="Type your answer…" rows="1" disabled
+    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"
+    oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+  <button class="send-btn" id="sendBtn" onclick="sendMsg()" disabled>➤</button>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const APPS_SCRIPT_URL = "https://script.google.com/a/macros/exotel.com/s/AKfycbxriJ0f-_9Myvu4xiQtBTLafnEIOKu0TAjKRQOE2GMNx3SltapyjH7OUs86pT_dExY3/exec";
+const NUM_QUESTIONS = 8;
+
+// ── Question Bank ──────────────────────────────────────────────────────────
+const QUESTION_BANK = {
+  "Week 1": [
+    { section: "Day 1 · Team Structure", q: "A customer calls saying their bot stopped working. L1 picks up the ticket, checks the standard runbook steps, and cannot resolve it. What happens next? Who takes over, what does L1 need to hand over, and why does that information matter?" },
+    { section: "Day 1 · Priority Levels", q: "Your teammate classifies a ticket as P2. The customer's bot is partially broken — some users are affected but the main service is still running and there is a workaround. You think it might be P1. How do you decide who is right? What is the key question you ask yourself?" },
+    { section: "Day 1 · Tools — SFDC vs Jira", q: "Explain the difference between SFDC Lightning and Jira to someone starting their first day. When does a ticket go into each system, and is there any situation where the same issue appears in both? Give a simple example." },
+    { section: "Day 2 · SLA Basics", q: "It is 9am on Monday. A P1 ticket just came in. In plain words — not just numbers — what does 'first response' mean, when must it happen, and what do you do if you are still investigating when that deadline arrives?" },
+    { section: "Day 2 · Ticket Lifecycle", q: "Walk me through the life of a ticket from the moment a customer raises it to the moment it is closed. At each stage, what is happening and who is responsible? You do not need exact step names — just show me you understand the flow." },
+    { section: "Day 3 · Products in Plain Words", q: "A friend who does not work in tech asks you what your company's product does. Describe all four Exotel products — Chatbot, LiveChat, Campaign, and Cobrowse — in one sentence each. No technical terms. Pretend you are explaining to someone outside the industry." },
+    { section: "Day 3 · Product Identification", q: "A customer says: 'Users are sending messages to the bot but agents are not receiving them for a live conversation.' Which product is involved, and how can you tell from the symptom alone? What is the first thing you would check?" },
+    { section: "Day 3 · How Products Work Together", q: "Describe a customer journey where all four products are involved at different points. Start from a user opening a chat and end with an agent sharing the user's screen. What triggers each product to activate?" },
+    { section: "Day 4 · Console Navigation", q: "A ticket says the bot works on the website but not on WhatsApp. You open the Remote Console. Where do you go first to understand why — walk me through the navigation path and what you are looking for when you get there." },
+    { section: "Day 4–5 · Observation", q: "On Day 5 you observed a real production bot in the Remote Console. Describe one thing that stood out — something you did not expect, or that was different from a sandbox bot. Why do you think it is set up that way?" }
+  ]
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let state = "greeting";
+let userName = "", userEmail = "";
+let selectedQuestions = [], currentQ = 0, answers = [];
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    botMsg("👋 Hi there! I'm the <strong>Week 1 Assessment Bot</strong> for Exotel AI-Tech Support.<br><br>I'll pick <strong>" + NUM_QUESTIONS + " random questions</strong> from this week's topics and ask them one at a time. There's no time pressure — just answer in your own words.<br><br>First, what's your <strong>full name</strong>?");
+    enableInput("e.g. Priya Sharma");
+  }, 400);
+});
+
+// ── Message helpers ────────────────────────────────────────────────────────
+function botMsg(html) {
+  const win = document.getElementById("chatWindow");
+  const div = document.createElement("div");
+  div.className = "msg bot";
+  div.innerHTML = `<div class="msg-avatar">🤖</div><div class="bubble">${html}</div>`;
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+function userMsg(text) {
+  const win = document.getElementById("chatWindow");
+  const div = document.createElement("div");
+  div.className = "msg user";
+  div.innerHTML = `<div class="msg-avatar">👤</div><div class="bubble">${escHtml(text)}</div>`;
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+function typingIndicator() {
+  const win = document.getElementById("chatWindow");
+  const div = document.createElement("div");
+  div.className = "msg bot"; div.id = "typing";
+  div.innerHTML = `<div class="msg-avatar">🤖</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+function removeTyping() { const t = document.getElementById("typing"); if (t) t.remove(); }
+
+function enableInput(placeholder) {
+  const inp = document.getElementById("userInput");
+  inp.disabled = false;
+  inp.placeholder = placeholder || "Type your answer…";
+  inp.value = ""; inp.style.height = "auto";
+  document.getElementById("sendBtn").disabled = false;
+  setTimeout(() => inp.focus(), 100);
+}
+
+function disableInput() {
+  document.getElementById("userInput").disabled = true;
+  document.getElementById("sendBtn").disabled = true;
+}
+
+function escHtml(t) { return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function updateProgress() {
+  const pill = document.getElementById("progressPill");
+  if (state === "greeting" || state === "ask_email") pill.textContent = "Getting started";
+  else if (state === "quiz") pill.textContent = `Question ${currentQ} of ${NUM_QUESTIONS}`;
+  else pill.textContent = "✅ Complete";
+}
+
+// ── Send ───────────────────────────────────────────────────────────────────
+async function sendMsg() {
+  const inp = document.getElementById("userInput");
+  const text = inp.value.trim();
+  if (!text) return;
+  disableInput();
+  userMsg(text);
+
+  if (state === "greeting") {
+    userName = text;
+    state = "ask_email";
+    updateProgress();
+    await delay(600);
+    botMsg(`Nice to meet you, <strong>${escHtml(userName)}</strong>! What's your <strong>work email</strong>?`);
+    enableInput("you@exotel.com");
+
+  } else if (state === "ask_email") {
+    if (!text.includes("@")) {
+      botMsg("That doesn't look like a valid email — could you double-check it?");
+      enableInput("you@exotel.com");
+      return;
+    }
+    userEmail = text;
+    state = "quiz";
+    updateProgress();
+    const pool = [...QUESTION_BANK["Week 1"]];
+    selectedQuestions = shuffleAndPick(pool, NUM_QUESTIONS);
+    currentQ = 0; answers = [];
+    typingIndicator();
+    await delay(800);
+    removeTyping();
+    botMsg(`Great! I've selected <strong>${NUM_QUESTIONS} random questions</strong> for you from across Days 1–5. Answer each in your own words — no looking at notes 🙂<br><br>Take your time. There's no timer. Let's go!`);
+    await delay(600);
+    askNextQuestion();
+
+  } else if (state === "quiz") {
+    answers.push({ question: selectedQuestions[currentQ - 1], answer: text });
+    updateProgress();
+    if (currentQ < NUM_QUESTIONS) {
+      await delay(300);
+      askNextQuestion();
+    } else {
+      state = "done";
+      updateProgress();
+      await finishAndSave();
+    }
+  }
+}
+
+function askNextQuestion() {
+  currentQ++;
+  updateProgress();
+  const qData = selectedQuestions[currentQ - 1];
+  botMsg(`<span class="q-label">Question ${currentQ} of ${NUM_QUESTIONS} · ${qData.section}</span>${escHtml(qData.q)}`);
+  enableInput("Type your answer… (Shift+Enter for new line)");
+}
+
+// ── Save via hidden iframe form (bypasses CORS entirely) ───────────────────
+async function finishAndSave() {
+  botMsg("All done! Saving your answers… ⏳");
+  const payload = {
+    timestamp: new Date().toISOString(),
+    name: userName,
+    email: userEmail,
+    week: "Week 1",
+    answers: answers.map(a => ({
+      section: a.question.section,
+      question: a.question.q,
+      answer: a.answer
+    }))
+  };
+
+  try {
+    await submitViaIframe(APPS_SCRIPT_URL, payload);
+    botMsg(`<div class="done-card"><div class="title">✅ Assessment submitted!</div><div class="sub">Your answers have been saved to the team Google Sheet and the Drive folder.<br><br>Let your buddy know it's ready — they'll review before Day 6.</div></div>`);
+  } catch (e) {
+    botMsg(`<div class="warn-card"><div class="title">⚠️ Couldn't save automatically</div><div class="sub">Download your answers and send to your buddy or team lead.<br><button class="dl-btn" onclick="downloadAnswers()">⬇ Download my answers</button></div></div>`);
+  }
+  disableInput();
+}
+
+// Form POST via hidden iframe — no CORS restrictions, works with Apps Script
+function submitViaIframe(url, payload) {
+  return new Promise((resolve) => {
+    const iframeName = "submit_iframe_" + Date.now();
+    const iframe = document.createElement("iframe");
+    iframe.name = iframeName;
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = url;
+    form.target = iframeName;
+
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "payload";
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
+    document.body.appendChild(form);
+
+    // Resolve after 4s regardless — we can't read the iframe response cross-origin
+    const cleanup = () => {
+      try { document.body.removeChild(form); } catch(e) {}
+      try { document.body.removeChild(iframe); } catch(e) {}
+    };
+    iframe.onload = () => { cleanup(); resolve(true); };
+    setTimeout(() => { cleanup(); resolve(true); }, 4000);
+
+    form.submit();
+  });
+}
+
+function downloadAnswers() {
+  let txt = `Week 1 Assessment — ${userName} (${userEmail})\nSubmitted: ${new Date().toLocaleString()}\n${"=".repeat(60)}\n\n`;
+  answers.forEach((a, i) => {
+    txt += `Q${i+1} [${a.question.section}]\n${a.question.q}\n\nAnswer:\n${a.answer}\n\n${"─".repeat(60)}\n\n`;
+  });
+  const url = URL.createObjectURL(new Blob([txt], { type: "text/plain" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = `${userName.replace(/\s+/g,"_")}_Week1_Assessment.txt`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function shuffleAndPick(arr, n) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.slice(0, n);
+}
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
