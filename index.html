@@ -78,7 +78,7 @@
 
 <script>
 // ── Config ─────────────────────────────────────────────────────────────────
-const APPS_SCRIPT_URL = "https://script.google.com/a/macros/exotel.com/s/AKfycbxriJ0f-_9Myvu4xiQtBTLafnEIOKu0TAjKRQOE2GMNx3SltapyjH7OUs86pT_dExY3/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/a/macros/exotel.com/s/AKfycbxUmyQGjZM68yUxwjDiBZNL2wcuzHTyyPYseIe6KdBNV-LfnL2hrkf3BOEoDTVieXCI/exec";
 const NUM_QUESTIONS = 8;
 
 // ── Question Bank ───────────────────────────────────────────────────────────
@@ -167,41 +167,17 @@ async function save() {
     name, email, week: "Week 1",
     answers: answers.map(a => ({ section: a.section, question: a.question, answer: a.answer }))
   };
-  let saved = false;
   try {
-    // Must use text/plain — application/json triggers a CORS preflight
-    // that Apps Script cannot respond to, so the POST never arrives.
     await fetch(APPS_SCRIPT_URL, {
       method: "POST",
       mode: "no-cors",
-      headers: { "Content-Type": "text/plain" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    saved = true;
+    bot(`<div class="done-card"><div class="title">✅ Assessment saved!</div><div class="sub">Your answers have been recorded in the team Google Sheet.<br><br>Let your buddy know it's ready — they'll review before Day 6.</div></div>`);
   } catch (e) {
-    saved = false;
+    bot(`Hmm, couldn't save automatically. Please copy your answers and send them to your buddy.<br><small style="color:var(--muted)">${e.message}</small>`);
   }
-
-  if (saved) {
-    bot(`<div class="done-card"><div class="title">✅ Assessment submitted!</div><div class="sub">Your answers have been recorded in the team Google Sheet.<br><br>Let your buddy know it's ready — they'll review before Day 6.</div></div>`);
-  } else {
-    // Fallback: generate a downloadable text file
-    bot(`<div class="done-card" style="background:#fff7ed;border-color:#fdba74"><div class="title" style="color:#c2410c">⚠️ Couldn't save automatically</div><div class="sub" style="color:#7c2d12">Your answers are saved below as a file — download it and send to your buddy or email to your team lead.<br><br><button onclick="downloadAnswers()" style="margin-top:8px;background:#c2410c;color:white;border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-weight:600">⬇ Download my answers</button></div></div>`);
-  }
-}
-
-function downloadAnswers() {
-  let txt = `Week 1 Assessment — ${name} (${email})\n`;
-  txt += `Submitted: ${new Date().toLocaleString()}\n`;
-  txt += "=".repeat(60) + "\n\n";
-  answers.forEach((a, i) => {
-    txt += `Q${i+1} [${a.section}]\n${a.question}\n\nAnswer:\n${a.answer}\n\n${"─".repeat(60)}\n\n`;
-  });
-  const blob = new Blob([txt], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `${name.replace(/\s+/g,"_")}_Week1_Assessment.txt`;
-  a.click(); URL.revokeObjectURL(url);
 }
 
 // ── UI helpers ──────────────────────────────────────────────────────────────
